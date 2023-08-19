@@ -1,0 +1,211 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © boutiertom
+
+//vus sur yt, crypto edge. normalement eth mais pas fou a l'aire plus performant sur les alts
+
+//@version=4
+// pour passer en trading réel il faut changer les sl et tp en close et pas en low/hight sinon il ne cloturera pas la postion
+strategy("TesteYT", overlay = true)
+// indicator 
+
+//HalfTrend
+amplitude = input(title="Amplitude", defval=2)
+channelDeviation = input(title="Channel Deviation", defval=2)
+showArrows = input(title="Show Arrows", defval=true)
+showChannels = input(title="Show Channels", defval=true)
+
+var int trend = 0
+var int nextTrend = 0
+var float maxLowPrice = nz(low[1], low)
+var float minHighPrice = nz(high[1], high)
+
+var float up = 0.0
+var float down = 0.0
+float atrHigh = 0.0
+float atrLow = 0.0
+float arrowUp = na
+float arrowDown = na
+
+atr2 = atr(100) / 2
+dev = channelDeviation * atr2
+
+highPrice = high[abs(highestbars(amplitude))]
+lowPrice = low[abs(lowestbars(amplitude))]
+highma = sma(high, amplitude)
+lowma = sma(low, amplitude)
+
+if nextTrend == 1
+	maxLowPrice := max(lowPrice, maxLowPrice)
+
+	if highma < maxLowPrice and close < nz(low[1], low)
+		trend := 1
+		nextTrend := 0
+		minHighPrice := highPrice
+else
+	minHighPrice := min(highPrice, minHighPrice)
+
+	if lowma > minHighPrice and close > nz(high[1], high)
+		trend := 0
+		nextTrend := 1
+		maxLowPrice := lowPrice
+
+if trend == 0
+	if not na(trend[1]) and trend[1] != 0
+		up := na(down[1]) ? down : down[1]
+		arrowUp := up - atr2
+	else
+		up := na(up[1]) ? maxLowPrice : max(maxLowPrice, up[1])
+	atrHigh := up + dev
+	atrLow := up - dev
+else
+	if not na(trend[1]) and trend[1] != 1 
+		down := na(up[1]) ? up : up[1]
+		arrowDown := down + atr2
+	else
+		down := na(down[1]) ? minHighPrice : min(minHighPrice, down[1])
+	atrHigh := down + dev
+	atrLow := down - dev
+
+ht = trend == 0 ? up : down
+
+var color buyColor = color.blue
+var color sellColor = color.red
+
+//htColor = trend == 0 ? buyColor : sellColor
+//htPlot = plot(ht, title="HalfTrend", linewidth=2, color=htColor)
+
+//atrHighPlot = plot(showChannels ? atrHigh : na, title="ATR High", style=plot.style_circles, color=sellColor)
+//atrLowPlot = plot(showChannels ? atrLow : na, title="ATR Low", style=plot.style_circles, color=buyColor)
+
+//fill(htPlot, atrHighPlot, title="ATR High Ribbon", color=sellColor)
+//fill(htPlot, atrLowPlot, title="ATR Low Ribbon", color=buyColor)
+
+buySignal = not na(arrowUp) and (trend == 0 and trend[1] == 1)
+sellSignal = not na(arrowDown) and (trend == 1 and trend[1] == 0)
+
+plotshape(showArrows and buySignal ? atrLow : na, title="Arrow Up", style=shape.triangleup, location=location.absolute, size=size.tiny, color=buyColor)
+plotshape(showArrows and sellSignal ? atrHigh : na, title="Arrow Down", style=shape.triangledown, location=location.absolute, size=size.tiny, color=sellColor)
+
+alertcondition(buySignal, title="Alert: HalfTrend Buy", message="HalfTrend Buy")
+alertcondition(sellSignal, title="Alert: HalfTrend Sell", message="HalfTrend Sell")
+
+
+
+
+
+
+
+
+basePeriods = input(26, minval=1, title="Period")
+donchian(len) =>
+    avg(lowest(len), highest(len))
+baseLine = donchian(basePeriods)
+plot(baseLine, color=#991515, title="Kijun-Sen")
+
+//kdj
+ilong = input(20, title="period")
+isig = input(8, title="signal")
+m=1
+c = close
+h = highest(high, ilong)
+l = lowest(low,ilong)
+RSV = 100*((c-l)/(h-l))
+pK=0.0
+pD=0.0
+pK:=(m*RSV+(isig-m)*nz(pK[1]))/isig
+pD:= (m*pK+(isig-m)*nz(pD[1]))/isig
+pJ = 3 * pK-2 * pD
+ 
+plot(pK, color=color.orange)
+plot(pD, color=color.lime)
+plot(pJ, color=color.fuchsia)
+
+//bgcolor(pJ>pD? color.green : color.red, transp=70)
+
+// moyenne
+
+SMA100 = sma(close, 100)
+plot(SMA100, "SMA100", color = color.yellow)
+
+EMA200 = ema(close, 200)
+plot(EMA200, "EMA200", color = color.red)
+
+//condition long
+
+EMALONGok = SMA100 > EMA200
+KDJLONGok = pJ > pD
+CLOSEABOVE  = close > EMA200
+
+LongConditionOK = KDJLONGok and EMALONGok and CLOSEABOVE
+TriggerLong = showArrows and buySignal 
+LongSignal = LongConditionOK and TriggerLong
+
+//strategy entry long
+
+strategy.entry("enterLong", true, when= LongSignal )
+EnteredLong = strategy.position_size[0] > strategy.position_size[1]
+
+EnteredLongValue = valuewhen(EnteredLong, open, 0)
+EnteredLongEMA200Value = valuewhen(EnteredLong, EMA200, 0)
+
+plot(EnteredLongValue, "Enry long value", color = color.blue)
+plot(EnteredLongEMA200Value, "SL value", color = color.red)
+
+//SL long
+StopLong =crossunder(low, EnteredLongEMA200Value)  //pour passer en trade réel mettre le low en close
+
+//TP long
+LongRisk = ((EnteredLongValue - EnteredLongEMA200Value) / EnteredLongValue) * 100
+RatioRisk = input(2, "RatioRisk")
+ValueRisk = LongRisk * RatioRisk
+
+TPLongValue = EnteredLongValue + ((EnteredLongValue * ValueRisk ) / 100)
+plot(TPLongValue, "TP value", color = color.green)
+TPLong = crossover(high, TPLongValue)
+
+//strategy long exit
+strategy.close("enterLong", when= TPLong or StopLong)
+bgcolor(EnteredLong ? color.new(color.green, 70) : color.new(color.blue, 100))
+
+//Short entry condition
+EMASHORTok = SMA100 < EMA200
+KDJSHORTGok = pJ < pD
+CLOSEUNDER  = close < EMA200
+
+ConditionShortOk = EMASHORTok and KDJSHORTGok and CLOSEUNDER
+
+TriggerShort = showArrows and sellSignal 
+
+EnterShort = ConditionShortOk and TriggerShort
+bgcolor(EnterShort ? color.new(color.red, 70) : color.new(color.blue, 100))
+
+
+//strategy entry short 
+strategy.entry("entershort", false, when=EnterShort)
+
+//entry point reetain ValueRisk
+
+EnteredShort = strategy.position_size[1] > strategy.position_size[0]
+EntreredShortValue = valuewhen(EnteredShort, close, 0)
+EnteredShortEMA200Value = valuewhen(EnteredShort, EMA200, 0)
+
+plot(EntreredShortValue, "testevalueshort", color = color.blue)
+
+//SL short
+StopShort  = crossover(high, EnteredShortEMA200Value)
+plot(EnteredShortEMA200Value, "testeSLShort", color =  color.red)
+
+//Percnetage LongRisk
+ShortRisk = ((EnteredShortEMA200Value - EntreredShortValue) / EntreredShortValue) * 100
+ShortRiskRatio = RatioRisk * ShortRisk
+
+//TP short 
+TPShortValue = EntreredShortValue - ((EntreredShortValue * ShortRiskRatio) / 100)
+plot(TPShortValue, "TPShortValue", color = color.green)
+TPShort = crossunder(low, TPShortValue)
+
+plot(ShortRisk, "shortRisk")
+
+//strategy short exit
+
+strategy.close("entershort", when = TPShort or StopShort)
