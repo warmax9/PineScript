@@ -3,6 +3,11 @@ Stratégie vus sur YT (crypto Edge https://www.youtube.com/watch?v=68a1DaNz20o)
 Dans la vidéo il l'utilise en H1 sur eth, il semblerait que la stratégie soir bien meilleur sur les altcoins (a confirmer sur p^lus d'échantillon)
 impossible en propfirm 
 
-Utilisation : Dans la vidéo il l'utilise en 1h sur eth.
+Utilisation : Le code fonctionne en backtest sur tradingview, pour passer en réel il faut absolument changer le premier parametre des tp et des sl pour le mettre en close : 
+TPLong = crossover(high, TPLongValue) => TPLong = crossover(close, TPLongValue).
 
 Indicateur : KDJ, MA100, EMA200, HalfTrend
+
+rsultat de la période du 01/01/22 au 20/08/22 : 
+
+avec un capital de 1000, 100 par trade et max 2 trade en simultané (le tableau du 28/08/23 et avec un rr de 2)
